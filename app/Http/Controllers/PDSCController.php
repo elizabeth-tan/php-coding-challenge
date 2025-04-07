@@ -14,7 +14,7 @@ class PDSCCOntroller extends Controller
             while (!feof($fp)) {
                 $line = fgets($fp);
                 if ($line !== false) {
-                    $line = str_replace('  ', ',', $line);
+                    $line = str_replace(' ', ',', $line);
                     $line = str_replace("\r\n", ',', $line);
                     $line = explode(",",$line);
                     $line = array_filter($line);        
@@ -36,6 +36,9 @@ class PDSCCOntroller extends Controller
                         if($count == 4){
                             $cleanedArray['DateTime'] = trim($l);
                         }
+                        if($count == 5){
+                            $cleanedArray['DateTime'] .= " ".trim($l);
+                        }
                         $count++;
                     }
                     array_push($lines, $cleanedArray);
@@ -43,29 +46,69 @@ class PDSCCOntroller extends Controller
             }
             fclose($fp);
         }
-        $the_answer = $this->formatArray($lines);
-        return $the_answer;
+        $part1 = $this->formatArray($lines);
+        $part2 = $this->sortArray($lines);
+        $part3 = $this->getDistinctArray($part2);
+        $the_output = array_merge($part1, $part2, $part3);
+        $this->printOutput($the_output);
+        return $the_output;
     }
 
-    public function sortArray($cleanedArray){
+    public function printOutput($input_value){
+        $myfile = fopen("sample_output.txt", "w");
+        foreach($input_value as $line){
+            fwrite($myfile, $line."\n");
+        }
+        fclose($myfile);
     }
 
     public function formatArray($cleanedArray){
         $newArray = [];
         // <UserID>|<BytesTX>|<BytesRX>|<DateTime>|<ID>
+       
         foreach($cleanedArray as $record){
-            $userID = $record['UserID'];
-            $BytesTX = $record['BytesTX'];
-            $BytesRX = $record['BytesRX'];
-            $DateTime = $record['DateTime'];
-            $ID = $record['ID'];
+            if(isset($record['UserID'])){
+                $userID = $record['UserID'];
+            }
+            if(isset($record['BytesTX'])){
+                $BytesTX = number_format((int)$record['BytesTX']);
+            }
+            if(isset($record['BytesRX'])){
+                $BytesRX = number_format((int)$record['BytesRX']);
+            }
+            if(isset($record['DateTime'])){
+                $DateTime = $record['DateTime'];
+                $date = date_create($DateTime);
+                $DateTime = date_format($date,"D, F d Y, H:i:s");
+            }
+            if(isset($record['ID'])){
+                $ID = $record['ID'];
+            }
             $formattedRecord = $userID."|".$BytesTX."|".$BytesRX."|".$DateTime."|".$ID;
             array_push($newArray, $formattedRecord);
         }
         return $newArray;
     }
 
-    public function getDistinctArray($cleanedArray){
+    public function sortArray($cleanedArray){
+        $ids_only = array_column($cleanedArray, 'ID');
+        $sorted_array = [];
+        foreach($ids_only as $ids){
+            $pieces = explode("-", $ids);
+            $the_object = ["id"=>(int)$pieces[0], "value"=>$ids];
+            array_push($sorted_array, $the_object);
+        }
+        sort($sorted_array);
+        $sorted_array = array_column($sorted_array, 'value');
+        return $sorted_array;
+    }
 
+    public function getDistinctArray($cleanedArray){
+        $result = array_unique($cleanedArray);
+        $converted_array = [];
+        for($x=0; $x<count($result); $x++){
+            array_push($converted_array, '['.$x.']'." $result[$x]");
+        }
+        return $converted_array;
     }
 }
